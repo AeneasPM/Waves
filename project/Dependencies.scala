@@ -103,7 +103,8 @@ object Dependencies {
       compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
       "com.softwaremill.sttp" %%% "core" % "1.6.4",
       "com.wavesplatform"     % "zwaves" % "0.1.0-SNAPSHOT",
-      "org.web3j"             % "crypto" % "4.5.18"
+      "com.wavesplatform"     % "zwaves-bn256" % "0.1.5-SNAPSHOT",
+      "org.web3j" % "crypto" % "4.5.18"
     ) ++ scalapbRuntime.value ++ circe.value
   )
 
@@ -187,7 +188,7 @@ object Dependencies {
   )
 
   lazy val circe = Def.setting {
-    val circeVersion = "0.12.3"
+    val circeVersion = "0.13.0"
     Seq(
       "io.circe" %%% "circe-core",
       "io.circe" %%% "circe-generic",
