@@ -30,8 +30,8 @@ class RideReplBlockchainFunctionsSuite extends BaseTransactionSuite {
       .withDefault(entitiesNumber = 1)
       .buildNonConflicting()
 
-  private val alice = pkByAddress(firstAddress)
-  private val bob   = pkByAddress(secondAddress)
+  private val alice = firstKeyPair
+  private val bob   = secondKeyPair
 
   private val chainId: Char = miner.settings.blockchainSettings.addressSchemeCharacter
 
@@ -54,7 +54,7 @@ class RideReplBlockchainFunctionsSuite extends BaseTransactionSuite {
   test("prepare") {
     dataTxId = sender
       .putData(
-        alice.toAddress.stringRepr,
+        alice,
         List(
           BinaryDataEntry("bin", ByteStr("binary".getBytes)),
           BooleanDataEntry("bool1", true),
@@ -66,9 +66,9 @@ class RideReplBlockchainFunctionsSuite extends BaseTransactionSuite {
       )
       .id
 
-    sender.createAlias(bob.toAddress.stringRepr, alias, minFee).id
-    assetId = sender.issue(alice.toAddress.stringRepr, "Asset", "descr", 1000, 2, waitForTx = true).id
-    transferTxId = sender.transfer(alice.toAddress.stringRepr, s"alias:$chainId:$alias", transferAmount, minFee, Some(assetId)).id
+    sender.createAlias(bob, alias, minFee).id
+    assetId = sender.issue(alice, "Asset", "descr", 1000, 2, waitForTx = true).id
+    transferTxId = sender.transfer(alice, s"alias:$chainId:$alias", transferAmount, minFee, Some(assetId)).id
     nodes.waitForHeightAriseAndTxPresent(transferTxId)
   }
 

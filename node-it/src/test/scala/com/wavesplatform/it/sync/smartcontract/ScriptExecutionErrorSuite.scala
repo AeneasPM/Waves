@@ -18,9 +18,9 @@ import com.wavesplatform.transaction.{CreateAliasTransaction, Transaction}
 import org.scalatest.CancelAfterFailure
 
 class ScriptExecutionErrorSuite extends BaseTransactionSuite with CancelAfterFailure {
-  private val acc0 = pkByAddress(firstAddress)
-  private val acc1 = pkByAddress(secondAddress)
-  private val acc2 = pkByAddress(thirdAddress)
+  private val acc0 = firstKeyPair
+  private val acc1 = secondKeyPair
+  private val acc2 = thirdKeyPair
   private val ts   = System.currentTimeMillis()
 
   test("custom throw message") {
@@ -55,7 +55,7 @@ class ScriptExecutionErrorSuite extends BaseTransactionSuite with CancelAfterFai
       )
     ).explicitGet()
 
-    val tx = sender.signAndBroadcast(
+    val tx = sender.signedBroadcast(
       SetScriptTransaction
         .selfSigned(1.toByte, acc0, Some(script), setScriptFee, ts)
         .explicitGet()
@@ -65,7 +65,8 @@ class ScriptExecutionErrorSuite extends BaseTransactionSuite with CancelAfterFai
 
     assertBadRequestAndResponse(
       sender.signedBroadcast(
-        TransferTransaction.selfSigned(2.toByte, acc0, acc1.toAddress, Waves, 1000, Waves, minFee + smartFee, ByteStr.empty,  ts)
+        TransferTransaction
+          .selfSigned(2.toByte, acc0, acc1.toAddress, Waves, 1000, Waves, minFee + smartFee, ByteStr.empty, ts)
           .explicitGet()
           .json()
       ),

@@ -26,15 +26,15 @@ import scala.concurrent.duration._
 class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTime with OverflowBlock {
   import AcceptFailedScriptActivationSuite._
 
-  private val (dApp, dAppKP)               = (firstAddress, pkByAddress(firstAddress))
-  private val (caller, callerKP)           = (secondAddress, pkByAddress(secondAddress))
-  private val (otherCaller, otherCallerKP) = (thirdAddress, pkByAddress(thirdAddress))
+  private val (dApp, dAppKP)               = (firstAddress, firstKeyPair)
+  private val (caller, callerKP)           = (secondAddress, secondKeyPair)
+  private val (otherCaller, otherCallerKP) = (thirdAddress, thirdKeyPair)
 
   private var asset = ""
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    asset = sender.issue(dApp, "Asset", "Description", someAssetAmount, 8, script = assetScript(true), waitForTx = true).id
+    asset = sender.issue(dAppKP, "Asset", "Description", someAssetAmount, 8, script = assetScript(true), waitForTx = true).id
 
     val dAppScript = mkScript(
       s"""
@@ -63,15 +63,15 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
          |""".stripMargin
     )
 
-    sender.setScript(dApp, dAppScript, setScriptFee, waitForTx = true).id
+    sender.setScript(dAppKP, dAppScript, setScriptFee, waitForTx = true).id
   }
 
   test("reject failed transaction before activation height") {
     overflowBlock()
-    sender.setAssetScript(asset, dApp, priorityFee, assetScript(false))
+    sender.setAssetScript(asset, dAppKP, priorityFee, assetScript(false))
     val txs =
       (1 to MaxTxsInMicroBlock * 2).map { _ =>
-        sender.invokeScript(caller, dApp, Some("transfer"), fee = minInvokeFee)._1.id
+        sender.invokeScript(callerKP, dApp, Some("transfer"), fee = minInvokeFee)._1.id
       }
     sender.waitFor("empty utx")(n => n.utxSize, (utxSize: Int) => utxSize == 0, 100.millis)
 
@@ -86,11 +86,11 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
   }
 
   test("accept valid transaction before activation height") {
-    val tx = sender.invokeScript(caller, dApp, Some("write"), fee = invokeFee, waitForTx = true)._1.id
+    val tx = sender.invokeScript(callerKP, dApp, Some("write"), fee = invokeFee, waitForTx = true)._1.id
     all(sender.lastBlock().transactions.map(_.applicationStatus)) shouldBe None
 
     def check(): Unit = {
-      val txInfo = sender.transactionInfo[JsObject](tx)
+      val txInfo   = sender.transactionInfo[JsObject](tx)
       val txHeight = (txInfo \ "height").as[Int]
       (txInfo \ "id").as[String] shouldBe tx
       txInfo.value.contains("applicationStatus") shouldBe false
@@ -110,12 +110,12 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
   test("accept failed transaction after activation height") {
     sender.waitForHeight(ActivationHeight)
 
-    sender.setAssetScript(asset, dApp, setAssetScriptFee + smartFee, assetScript(true), waitForTx = true)
+    sender.setAssetScript(asset, dAppKP, setAssetScriptFee + smartFee, assetScript(true), waitForTx = true)
     overflowBlock()
-    sender.setAssetScript(asset, dApp, priorityFee, assetScript(false), waitForTx = true)
+    sender.setAssetScript(asset, dAppKP, priorityFee, assetScript(false), waitForTx = true)
     val txs =
       (1 to MaxTxsInMicroBlock * 2).map { _ =>
-        sender.invokeScript(caller, dApp, Some("transfer"), fee = minInvokeFee)._1.id
+        sender.invokeScript(callerKP, dApp, Some("transfer"), fee = minInvokeFee)._1.id
       }
 
     sender.waitFor("empty utx")(n => n.utxSize, (utxSize: Int) => utxSize == 0, 100.millis)
@@ -136,8 +136,8 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
         (sender.transactionInfo[JsObject](s.id) \ "applicationStatus").asOpt[String] shouldBe s.applicationStatus
       }
 
-      val heightToId = statuses.map(s => s.height.get -> s.id).toMap
-      val idToApplicationStatus = statuses.map(s => s.id -> s.applicationStatus).toMap
+      val heightToId            = statuses.map(s => s.height.get -> s.id).toMap
+      val idToApplicationStatus = statuses.map(s => s.id         -> s.applicationStatus).toMap
       heightToId.keys.foreach { h =>
         val block = sender.blockAt(h)
         block.transactions.foreach { tx =>
@@ -167,7 +167,7 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
   }
 
   test("accept valid transaction after activation height") {
-    val tx = sender.invokeScript(caller, dApp, Some("write"), fee = invokeFee, waitForTx = true)._1.id
+    val tx = sender.invokeScript(callerKP, dApp, Some("write"), fee = invokeFee, waitForTx = true)._1.id
 
     def check(): Unit = {
       val txInfo = sender.transactionInfo[JsObject](tx)
@@ -182,11 +182,11 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
   }
 
   test("accept invalid by asset script InvokeScriptTransaction to utx and save it as failed after activation height") {
-    sender.setAssetScript(asset, dApp, priorityFee, assetScript(false), waitForTx = true)
+    sender.setAssetScript(asset, dAppKP, priorityFee, assetScript(false), waitForTx = true)
 
     val txs =
       (1 to MaxTxsInMicroBlock * 2).map { _ =>
-        sender.invokeScript(caller, dApp, Some("transfer"), fee = minInvokeFee)._1.id
+        sender.invokeScript(callerKP, dApp, Some("transfer"), fee = minInvokeFee)._1.id
       }
 
     sender.waitFor("empty utx")(n => n.utxSize, (utxSize: Int) => utxSize == 0, 100.millis)
@@ -205,25 +205,25 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
   }
 
   test("accept invalid by asset script in payment InvokeScriptTransaction to utx and save it as failed after activation height") {
-    sender.setAssetScript(asset, dApp, priorityFee, assetScript(true), waitForTx = true)
+    sender.setAssetScript(asset, dAppKP, priorityFee, assetScript(true), waitForTx = true)
 
     val callerBalance = sender.balance(caller).balance
     val callerAssetBalance = {
       val balance = sender.assetBalance(caller, asset).balance
       if (balance < MaxTxsInMicroBlock * 2) {
-        sender.transfer(dApp, caller, MaxTxsInMicroBlock * 2 - balance, minFee + 2 * smartFee, Some(asset), waitForTx = true)
+        sender.transfer(dAppKP, caller, MaxTxsInMicroBlock * 2 - balance, minFee + 2 * smartFee, Some(asset), waitForTx = true)
       }
       sender.assetBalance(caller, asset).balance
     }
     val dAppAssetBalance = sender.assetBalance(dApp, asset).balance
 
-    sender.setAssetScript(asset, dApp, priorityFee, assetScript(false), waitForTx = true)
+    sender.setAssetScript(asset, dAppKP, priorityFee, assetScript(false), waitForTx = true)
 
     val txs =
       (1 to MaxTxsInMicroBlock * 2).map { _ =>
         sender
           .invokeScript(
-            caller,
+            callerKP,
             dApp,
             Some("write"),
             payment = Seq(InvokeScriptTransaction.Payment(2, IssuedAsset(ByteStr.decodeBase58(asset).get))),
@@ -250,7 +250,7 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
       assertApiError(
         sender
           .invokeScript(
-            caller,
+            callerKP,
             dApp,
             Some("write"),
             payment = Seq(InvokeScriptTransaction.Payment(callerAssetBalance + 1, IssuedAsset(ByteStr.decodeBase58(asset).get))),
@@ -270,11 +270,11 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
   }
 
   test("accept invalid by DApp script InvokeScriptTransaction to utx and save it as failed after activation height") {
-    sender.setAssetScript(asset, dApp, priorityFee, assetScript(true), waitForTx = true)
+    sender.setAssetScript(asset, dAppKP, priorityFee, assetScript(true), waitForTx = true)
 
     val txs =
       (1 to MaxTxsInMicroBlock * 2).map { _ =>
-        sender.invokeScript(caller, dApp, Some("error"), fee = minInvokeFee)._1.id
+        sender.invokeScript(callerKP, dApp, Some("error"), fee = minInvokeFee)._1.id
       }
 
     sender.waitFor("empty utx")(n => n.utxSize, (utxSize: Int) => utxSize == 0, 100.millis)
@@ -293,21 +293,21 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
   }
 
   test("reject withdrawal of InvokeScriptTransaction fee from the funds received as a result of the script call execution") {
-    sender.setAssetScript(asset, dApp, setAssetScriptFee + smartFee, assetScript(true), waitForTx = true)
+    sender.setAssetScript(asset, dAppKP, setAssetScriptFee + smartFee, assetScript(true), waitForTx = true)
 
-    sender.transfer(otherCaller, caller, sender.balance(otherCaller).balance - minFee, fee = minFee, waitForTx = true)
+    sender.transfer(otherCallerKP, caller, sender.balance(otherCaller).balance - minFee, fee = minFee, waitForTx = true)
 
     sender.balance(otherCaller).balance shouldBe 0L
 
-    assertApiError(sender.invokeScript(otherCaller, dApp, Some("transfer"), fee = minInvokeFee)) { e =>
+    assertApiError(sender.invokeScript(otherCallerKP, dApp, Some("transfer"), fee = minInvokeFee)) { e =>
       e.id shouldBe StateCheckFailed.Id
       e.message should include("Accounts balance errors")
     }
   }
 
   test("reject withdrawal of matcher fee from orders in ExchangeTransaction") {
-    sender.transfer(caller, otherCaller, issueFee, waitForTx = true)
-    val tradeAsset = sender.issue(otherCaller, "Trade", decimals = 8: Byte, waitForTx = true).id
+    sender.transfer(callerKP, otherCaller, issueFee, waitForTx = true)
+    val tradeAsset = sender.issue(otherCallerKP, "Trade", decimals = 8: Byte, waitForTx = true).id
 
     sender.balance(otherCaller).balance shouldBe 0L
 
@@ -357,22 +357,22 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
   }
 
   test("accept invalid by order asset scripts ExchangeTransaction to utx and save it as failed after activation height") {
-    sender.setAssetScript(asset, dApp, priorityFee, assetScript(true), waitForTx = true)
-    sender.transfer(sender.address, dApp, 100.waves, waitForTx = true)
+    sender.setAssetScript(asset, dAppKP, priorityFee, assetScript(true), waitForTx = true)
+    sender.transfer(sender.keyPair, dApp, 100.waves, waitForTx = true)
     val tradeAsset =
       sender
-        .issue(dApp, "TradeAsset", quantity = someAssetAmount, decimals = 8: Byte, script = assetScript(true), fee = priorityFee, waitForTx = true)
+        .issue(dAppKP, "TradeAsset", quantity = someAssetAmount, decimals = 8: Byte, script = assetScript(true), fee = priorityFee, waitForTx = true)
         .id
     val feeAsset =
       sender
-        .issue(dApp, "FeeAsset", quantity = someAssetAmount, decimals = 8: Byte, script = assetScript(true), fee = priorityFee, waitForTx = true)
+        .issue(dAppKP, "FeeAsset", quantity = someAssetAmount, decimals = 8: Byte, script = assetScript(true), fee = priorityFee, waitForTx = true)
         .id
 
     val preconditions = Seq(
-      sender.transfer(dApp, caller, someAssetAmount / 3, assetId = Some(tradeAsset), fee = minFee + 2 * smartFee).id,
-      sender.transfer(dApp, caller, someAssetAmount / 3, assetId = Some(feeAsset), fee = minFee + 2 * smartFee).id,
-      sender.transfer(dApp, otherCaller, someAssetAmount / 3, assetId = Some(tradeAsset), fee = minFee + 2 * smartFee).id,
-      sender.transfer(dApp, otherCaller, someAssetAmount / 3, assetId = Some(feeAsset), fee = minFee + 2 * smartFee).id
+      sender.transfer(dAppKP, caller, someAssetAmount / 3, assetId = Some(tradeAsset), fee = minFee + 2 * smartFee).id,
+      sender.transfer(dAppKP, caller, someAssetAmount / 3, assetId = Some(feeAsset), fee = minFee + 2 * smartFee).id,
+      sender.transfer(dAppKP, otherCaller, someAssetAmount / 3, assetId = Some(tradeAsset), fee = minFee + 2 * smartFee).id,
+      sender.transfer(dAppKP, otherCaller, someAssetAmount / 3, assetId = Some(feeAsset), fee = minFee + 2 * smartFee).id
     )
 
     sender.waitFor("preconditions")(
@@ -415,7 +415,7 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
 
     {
       val (buy, sell) = orders
-      sender.setAssetScript(tradeAsset, dApp, setAssetScriptFee + smartFee, assetScript(false), waitForTx = true)
+      sender.setAssetScript(tradeAsset, dAppKP, setAssetScriptFee + smartFee, assetScript(false), waitForTx = true)
       val tx = sender
         .broadcastExchange(
           dAppKP,
@@ -442,8 +442,8 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
 
     {
       val (buy, sell) = orders
-      sender.setAssetScript(tradeAsset, dApp, setAssetScriptFee + smartFee, assetScript(true), waitForTx = true)
-      sender.setAssetScript(feeAsset, dApp, setAssetScriptFee + smartFee, assetScript(false), waitForTx = true)
+      sender.setAssetScript(tradeAsset, dAppKP, setAssetScriptFee + smartFee, assetScript(true), waitForTx = true)
+      sender.setAssetScript(feeAsset, dAppKP, setAssetScriptFee + smartFee, assetScript(false), waitForTx = true)
       val tx = sender
         .broadcastExchange(
           dAppKP,
