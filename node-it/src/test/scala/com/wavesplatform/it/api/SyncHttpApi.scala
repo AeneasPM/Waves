@@ -612,12 +612,6 @@ object SyncHttpApi extends Assertions {
       maybeWaitForTransaction(sync(async(n).signAndBroadcast(tx)), waitForTx)
     }
 
-    def signAndTraceBroadcast(tx: JsValue, waitForTx: Boolean = false): (Transaction, JsValue) = {
-      sync(async(n).signAndTraceBroadcast(tx)) match {
-        case (tx, js) => maybeWaitForTransaction(tx, waitForTx) -> js
-      }
-    }
-
     def waitForHeight(expectedHeight: Int, requestAwaitTime: FiniteDuration = RequestAwaitTime): Int =
       sync(async(n).waitForHeight(expectedHeight), requestAwaitTime)
 
