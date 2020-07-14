@@ -76,7 +76,7 @@ object IntegrationTestsPlugin extends AutoPlugin {
             try {
               val docker = DefaultDockerClient.fromEnv().build()
               try {
-                (docker.info().cpus() * 1.5).toInt
+                (docker.info().cpus() * 2).toInt
               } finally docker.close()
             } catch {
               case NonFatal(_) =>

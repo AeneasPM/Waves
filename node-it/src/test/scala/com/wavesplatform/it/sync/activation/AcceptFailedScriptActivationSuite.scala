@@ -81,7 +81,6 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
       all(statuses.map(_.applicationStatus)) shouldBe None
     }
 
-    check() // liquid
     nodes.waitForHeightArise()
     check() // hardened
   }
@@ -103,7 +102,6 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
       all(sender.debugStateChangesByAddress(caller, 1).map(_.applicationStatus)) shouldBe None
     }
 
-    check() // liquid
     nodes.waitForHeightArise()
     check() // hardened
     all(sender.blockSeqByAddress(sender.address, 1, ActivationHeight - 1).flatMap(_.transactions.map(_.applicationStatus))) shouldBe None
@@ -164,7 +162,6 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
       }
     }
 
-    check() // liquid
     nodes.waitForHeightArise()
     check() // hardened
   }
@@ -180,7 +177,6 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
       sender.transactionStatus(Seq(tx)).map(_.applicationStatus) shouldBe Seq(Some("succeeded"))
     }
 
-    check() // liquid
     nodes.waitForHeightArise()
     check() // hardened
   }
@@ -204,7 +200,6 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
       all(failed.flatMap(_.applicationStatus)) shouldBe "script_execution_failed"
     }
 
-    check() // liquid
     nodes.waitForHeightArise()
     check() // hardened
   }
@@ -270,7 +265,6 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
       }
     }
 
-    check() // liquid
     nodes.waitForHeightArise()
     check() // hardened
   }
@@ -294,7 +288,6 @@ class AcceptFailedScriptActivationSuite extends BaseTransactionSuite with NTPTim
       all(failed.flatMap(_.applicationStatus)) shouldBe "script_execution_failed"
     }
 
-    check() // liquid
     nodes.waitForHeightArise()
     check() // hardened
   }
