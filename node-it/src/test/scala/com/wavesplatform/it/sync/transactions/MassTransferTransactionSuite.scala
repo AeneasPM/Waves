@@ -19,7 +19,14 @@ import play.api.libs.json._
 import scala.concurrent.duration._
 import scala.util.Random
 
-class MassTransferTransactionSuite extends BaseTransactionSuite /*with CancelAfterFailure*/ {
+class MassTransferTransactionSuite extends BaseTransactionSuite {
+
+
+  protected override def beforeAll(): Unit = {
+    super.beforeAll()
+    // explicitly create an address in node's wallet
+    sender.postForm("/addresses")
+  }
 
   private def fakeSignature = ByteStr(Array.fill(64)(Random.nextInt().toByte))
 
@@ -208,7 +215,7 @@ class MassTransferTransactionSuite extends BaseTransactionSuite /*with CancelAft
           Json.obj(
             "type"      -> MassTransferTransaction.typeId,
             "version"   -> v,
-            "sender"    -> firstKeyPair,
+            "sender"    -> firstAddress,
             "transfers" -> transfers,
             "fee"       -> fee
           )
@@ -279,7 +286,7 @@ class MassTransferTransactionSuite extends BaseTransactionSuite /*with CancelAft
 
       // /transactions/address should return complete transfers list for the sender...
       val txSender = Json
-        .parse(sender.get(s"/transactions/address/$firstKeyPair/limit/10").getResponseBody)
+        .parse(sender.get(s"/transactions/address/$firstAddress/limit/10").getResponseBody)
         .as[JsArray]
         .value
         .map(js => extractTransactionByType(js, 11).head)
@@ -294,7 +301,7 @@ class MassTransferTransactionSuite extends BaseTransactionSuite /*with CancelAft
       val txRecipient = Json
         .parse(
           sender
-            .get(s"/transactions/address/$secondKeyPair/limit/10")
+            .get(s"/transactions/address/$secondAddress/limit/10")
             .getResponseBody
         )
         .as[JsArray]
@@ -323,7 +330,7 @@ class MassTransferTransactionSuite extends BaseTransactionSuite /*with CancelAft
       nodes.waitForHeightAriseAndTxPresent(txId)
 
       val rawTxs = sender
-        .get(s"/transactions/address/$secondKeyPair/limit/10")
+        .get(s"/transactions/address/$secondAddress/limit/10")
         .getResponseBody
 
       val recipientTx =

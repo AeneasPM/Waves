@@ -42,27 +42,14 @@ trait IntegrationSuiteWithThreeAddresses
 
     val defaultBalance: Long = 100.waves
 
-    def dumpBalances(accounts: Seq[KeyPair], label: String): Unit = {
-      accounts.foreach(acc => {
+    def dumpBalances(accounts: Seq[KeyPair], label: String): Unit =
+      accounts.foreach { acc =>
         val (balance, eff) = miner.accountBalances(acc.toAddress.toString)
-
-        val formatted = s"$acc: balance = $balance, effective = $eff"
-        log.debug(s"$label account balance:\n$formatted")
-      })
-    }
-
-    def waitForTxsToReachAllNodes(txIds: Seq[String]): Unit = {
-      val txNodePairs = for {
-        txId <- txIds
-        node <- nodes
-      } yield (node, txId)
-
-      txNodePairs.foreach({ case (node, tx) => node.waitForTransaction(tx) })
-    }
+        log.debug(s"$label $acc balance: balance = $balance, effective = $eff")
+      }
 
     def makeTransfers(accounts: Seq[KeyPair]): Seq[String] = accounts.map { acc =>
       sender.transfer(sender.keyPair, acc.toAddress.toString, defaultBalance, sender.fee(TransferTransaction.typeId)).id
-
     }
 
     def correctStartBalancesFuture(): Unit = {
@@ -72,14 +59,13 @@ trait IntegrationSuiteWithThreeAddresses
       dumpBalances(accounts, "initial")
       val txs = makeTransfers(accounts)
 
-      val height = nodes.map(_.height).max
-
-      withClue(s"waitForHeight(${height + 2})") {
-        nodes.waitForHeight(height + 2)
+      val targetHeight = nodes.map(_.height).max + 1
+      withClue(s"waitForHeight($targetHeight)") {
+        nodes.waitForHeight(targetHeight)
       }
 
       withClue("waitForTxsToReachAllNodes") {
-        waitForTxsToReachAllNodes(txs)
+        txs.foreach(nodes.waitForTransaction)
       }
 
       dumpBalances(accounts, "after transfer")

@@ -6,12 +6,15 @@ import com.wavesplatform.it.api.TransactionInfo
 import com.wavesplatform.it.sync._
 import com.wavesplatform.it.transactions.BaseTransactionSuite
 import com.wavesplatform.it.util._
+import com.wavesplatform.transaction.CreateAliasTransaction
 import org.scalatest.prop.TableDrivenPropertyChecks
+import play.api.libs.json.Json
 
 import scala.util.Random
 
 class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropertyChecks {
   var version: Byte = 1
+
   test("Able to send money to an alias") {
     for (v <- aliasTxSupportedVersions) {
       val alias            = randomAlias()
@@ -41,7 +44,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
       val aliasFee         = createAlias(firstKeyPair, alias)
       miner.assertBalances(firstAddress, balance1 - aliasFee, eff1 - aliasFee)
 
-      assertApiErrorRaised(sender.createAlias(firstKeyPair, alias, minFee, version = v))
+      assertApiErrorRaised(createAliasFromJson(firstAddress, alias, minFee, version = v))
       miner.assertBalances(firstAddress, balance1 - aliasFee, eff1 - aliasFee)
     }
   }
@@ -53,7 +56,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
 
       val (balance1, eff1) = miner.accountBalances(firstAddress)
       val aliasFee         = createAlias(firstKeyPair, alias)
-      assertBadRequestAndMessage(sender.createAlias(secondKeyPair, alias, minFee, version = v), "Alias already claimed")
+      assertBadRequestAndMessage(createAliasFromJson(secondAddress, alias, minFee, version = v), "Alias already claimed")
       miner.assertBalances(firstAddress, balance1 - aliasFee, eff1 - aliasFee)
     }
   }
@@ -77,7 +80,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
     }
   }
 
-  val aliases_names =
+  private val aliases_names =
     Table(s"aliasName${randomAlias()}", s"aaaa${randomAlias()}", s"....${randomAlias()}", s"123456789.${randomAlias()}", s"@.@-@_@${randomAlias()}")
 
   aliases_names.foreach { alias =>
@@ -91,7 +94,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
     }
   }
 
-  val invalid_aliases_names =
+  private val invalid_aliases_names =
     Table(
       ("aliasName", "message"),
       ("", "Alias '' length should be between 4 and 30"),
@@ -106,7 +109,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
   forAll(invalid_aliases_names) { (alias: String, message: String) =>
     test(s"Not able to create alias named $alias") {
       for (v <- aliasTxSupportedVersions) {
-        assertBadRequestAndMessage(sender.createAlias(secondKeyPair, alias, minFee, version = v), message)
+        assertBadRequestAndMessage(createAliasFromJson(secondAddress, alias, minFee, version = v), message)
       }
     }
   }
@@ -136,7 +139,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
       val balance = miner.accountBalances(firstAddress)._1
       val alias   = randomAlias()
       assertBadRequestAndMessage(
-        sender.createAlias(firstKeyPair, alias, balance + minFee, version = v),
+        createAliasFromJson(firstAddress, alias, balance + minFee, version = v),
         "State check failed. Reason: Accounts balance errors"
       )
     }
@@ -149,6 +152,18 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
       minFee
     } else 0
   }
+
+  private def createAliasFromJson(targetAddress: String, alias: String, fee: Long, version: Byte) =
+    sender.signedBroadcast(
+      Json.obj(
+        "version" -> version,
+        "type"    -> CreateAliasTransaction.typeId,
+        "version" -> version,
+        "sender"  -> targetAddress,
+        "fee"     -> fee,
+        "alias"   -> alias
+      )
+    )
 
   private def fullAliasByAddress(address: String, alias: String): String = {
     sender.aliasByAddress(address).find(_.endsWith(alias)).get

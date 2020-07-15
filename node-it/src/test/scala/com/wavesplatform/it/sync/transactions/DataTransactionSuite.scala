@@ -2,7 +2,7 @@ package com.wavesplatform.it.sync.transactions
 
 import com.google.common.primitives.Ints
 import com.typesafe.config.Config
-import com.wavesplatform.account.AddressScheme
+import com.wavesplatform.account.{AddressScheme, KeyPair}
 import com.wavesplatform.api.http.ApiError.{CustomValidationError, TooBigArrayAllocation}
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.{Base58, EitherExt2}
@@ -37,12 +37,12 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
 
   protected override def beforeAll(): Unit = {
     super.beforeAll()
+    // explicitly create new address in node's wallet
+    sender.postForm("/addresses")
     sender.transfer(firstKeyPair, fourthAddress, 10.waves, minFee, waitForTx = true)
   }
 
   test("put and remove keys") {
-    val address = sender.keyPair
-
     def dataEntries(i: Int): List[DataEntry[_]] =
       List(
         BooleanDataEntry(s"bool-key-$i", i % 2 == 0),
@@ -61,7 +61,7 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
 
     // can put data
     val putDataEntries = (1 to 25).flatMap(i => dataEntries(i)).toList
-    val putTxId        = sender.putData(address, putDataEntries, calcDataFee(putDataEntries, TxVersion.V1)).id
+    val putTxId        = sender.putData(sender.keyPair, putDataEntries, calcDataFee(putDataEntries, TxVersion.V1)).id
     nodes.waitForHeightAriseAndTxPresent(putTxId)
 
     // can put new, update and remove existed in the same transaction
@@ -78,7 +78,7 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
 
     nodes.waitForHeightAriseAndTxPresent(updateAndRemoveTxId)
 
-    sender.getData(address.toAddress.toString) should contain theSameElementsAs updatedDatEntries ++ putDataEntries.slice(25, 75) ++ newDataEntries
+    sender.getData(sender.address) should contain theSameElementsAs updatedDatEntries ++ putDataEntries.slice(25, 75) ++ newDataEntries
 
     // can reuse removed keys
     val reusedData = putDataEntries.takeRight(25).map(updateDataEntry)
@@ -87,7 +87,7 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
 
     nodes.waitForHeightAriseAndTxPresent(reuseTxId)
 
-    sender.getData(address.toAddress.toString) should contain theSameElementsAs updatedDatEntries ++ putDataEntries.slice(25, 75) ++ reusedData ++ newDataEntries
+    sender.getData(sender.address) should contain theSameElementsAs updatedDatEntries ++ putDataEntries.slice(25, 75) ++ reusedData ++ newDataEntries
 
     // can't update and remove keys in the same transaction
     val sameKeyEntries = updateAndRemoveDataEntries.tail :+ EmptyDataEntry(updateAndRemoveDataEntries(1).key)
@@ -122,11 +122,11 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
     // can put and remove same data within one block
     nodes.waitForHeightArise()
     val putDataEntries2 = List(IntegerDataEntry("del", 42))
-    val putDataTxId     = sender.putData(address, putDataEntries2, calcDataFee(putDataEntries2, TxVersion.V1) * 10).id
+    val putDataTxId     = sender.putData(sender.keyPair, putDataEntries2, calcDataFee(putDataEntries2, TxVersion.V1) * 10).id
     val removeDataTxId  = sender.broadcastData(sender.keyPair, List(EmptyDataEntry("del")), calcDataFee(List(EmptyDataEntry("del")), TxVersion.V2)).id
     nodes.waitForTransaction(putDataTxId)
     nodes.waitForTransaction(removeDataTxId)
-    sender.getData(address.toAddress.toString).filter(_.key == "del") shouldBe List.empty
+    sender.getData(sender.address).filter(_.key == "del") shouldBe List.empty
   }
 
   test("sender's waves balance is decreased by fee") {
@@ -300,8 +300,8 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
       case _ => Assertions.fail("Expected 404")
     }
 
-    assertNotFound(s"/addresses/data/$secondKeyPair/foo")
-    assertNotFound(s"/addresses/data/$thirdKeyPair/foo")
+    assertNotFound(s"/addresses/data/$secondAddress/foo")
+    assertNotFound(s"/addresses/data/$thirdAddress/foo")
     sender.getData(fourthAddress) shouldBe List.empty
   }
 
@@ -324,7 +324,7 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
 
   test("malformed JSON") {
     for (v <- dataTxSupportedVersions) {
-      def request(item: JsObject) = Json.obj("version" -> v, "sender" -> secondKeyPair, "fee" -> minFee, "data" -> Seq(item))
+      def request(item: JsObject) = Json.obj("version" -> v, "sender" -> secondAddress, "fee" -> minFee, "data" -> Seq(item))
 
       val validItem = Json.obj("key" -> "key", "type" -> "integer", "value" -> 8)
 
@@ -373,7 +373,7 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
           Json.obj(
             "version" -> v,
             "type"    -> DataTransaction.typeId,
-            "sender"  -> firstKeyPair,
+            "sender"  -> firstAddress,
             "data"    -> List(DataEntry.Format.writes(IntegerDataEntry("int", 333))),
             "fee"     -> 100000
           )
@@ -398,6 +398,20 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
     }
   }
 
+  private def postDataTxJson(source: KeyPair, data: Seq[DataEntry[_]], fee: Long, version: Byte) =
+    sender.signedBroadcast(
+      Json.obj(
+        "type"            -> DataTransaction.typeId,
+        "sender"          -> source.toAddress,
+        "senderPublicKey" -> source.publicKey,
+        "fee"             -> fee,
+        "version"         -> version,
+        "data"            -> data,
+        "proofs"          -> JsArray(),
+        "timestamp"       -> System.currentTimeMillis()
+      )
+    )
+
   test("try to send tx above limits of key, value and entries count") {
     for (v <- dataTxSupportedVersions) {
       val maxKeySize    = if (v < 2) 100 else 400
@@ -415,19 +429,19 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
       )
 
       val extraValueData = List(BinaryDataEntry("key", ByteStr(Array.fill(maxValueSize + 1)(1.toByte))))
-      assertBadRequestAndResponse(sender.putData(firstKeyPair, extraValueData, 1.waves, version = v), TooBig)
+      assertBadRequestAndResponse(postDataTxJson(firstKeyPair, extraValueData, 1.waves, version = v), TooBig)
       nodes.waitForHeightArise()
 
       val largeBinData = List.tabulate(5)(n => BinaryDataEntry(extraKey, ByteStr(Array.fill(maxValueSize)(n.toByte))))
-      assertBadRequestAndResponse(sender.putData(firstKeyPair, largeBinData, 1.waves, version = v), TooBig)
+      assertBadRequestAndResponse(postDataTxJson(firstKeyPair, largeBinData, 1.waves, version = v), TooBig)
       nodes.waitForHeightArise()
 
       val largeStrData = List.tabulate(5)(n => StringDataEntry(extraKey, "A" * maxValueSize))
-      assertBadRequestAndResponse(sender.putData(firstKeyPair, largeStrData, 1.waves, version = v), TooBig)
+      assertBadRequestAndResponse(postDataTxJson(firstKeyPair, largeStrData, 1.waves, version = v), TooBig)
       nodes.waitForHeightArise()
 
-      val tooManyEntriesData = List.tabulate(maxEntryCount + 1)(n => IntegerDataEntry("key", 88))
-      assertBadRequestAndResponse(sender.putData(firstKeyPair, tooManyEntriesData, 1.waves, version = v), TooBig)
+      val tooManyEntriesData = List.fill(maxEntryCount + 1)(IntegerDataEntry("key", 88))
+      assertBadRequestAndResponse(postDataTxJson(firstKeyPair, tooManyEntriesData, 1.waves, version = v), TooBig)
       nodes.waitForHeightArise()
     }
   }

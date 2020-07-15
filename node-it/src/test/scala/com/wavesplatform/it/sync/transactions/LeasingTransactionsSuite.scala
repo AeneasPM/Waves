@@ -92,7 +92,7 @@ class LeasingTransactionsSuite extends BaseTransactionSuite with CancelAfterFail
       val leases1 = sender.activeLeases(firstAddress)
       assert(leases1.exists(_.id == createdLeaseTxId))
 
-      val createdCancelLeaseTx = sender.cancelLease(firstKeyPair, createdLeaseTxId, minFee)
+      val createdCancelLeaseTx = sender.cancelLease(firstKeyPair, createdLeaseTxId, minFee, v)
       nodes.waitForHeightAriseAndTxPresent(createdCancelLeaseTx.id)
       if (v > 2) {
         createdCancelLeaseTx.chainId shouldBe Some(AddressScheme.current.chainId)

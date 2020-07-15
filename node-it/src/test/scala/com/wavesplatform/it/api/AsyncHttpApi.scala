@@ -282,8 +282,8 @@ object AsyncHttpApi extends Assertions {
       case Failure(ex)                                          => Failure(ex)
     }
 
-    def waitForTransaction(txId: String, retryInterval: FiniteDuration = 1.second): Future[TransactionInfo] = {
-      val condition = waitFor[Option[TransactionInfo]](s"transaction $txId")(
+    def waitForTransaction(txId: String, retryInterval: FiniteDuration = 1.second): Future[TransactionInfo] =
+      waitFor[Option[TransactionInfo]](s"transaction $txId")(
         _.transactionInfo[TransactionInfo](txId).transform {
           case Success(tx)                                          => Success(Some(tx))
           case Failure(UnexpectedStatusCodeException(_, _, 404, _)) => Success(None)
@@ -292,9 +292,6 @@ object AsyncHttpApi extends Assertions {
         tOpt => tOpt.exists(_.id == txId),
         retryInterval
       ).map(_.get)
-
-      condition
-    }
 
     def waitForUtxIncreased(fromSize: Int): Future[Int] = waitFor[Int](s"utxSize > $fromSize")(
       _.utxSize,
@@ -388,12 +385,17 @@ object AsyncHttpApi extends Assertions {
           .json()
       )
 
-    def cancelLease(sender: KeyPair, leaseId: String, fee: Long, version: TxVersion = TxVersion.V2): Future[Transaction] =
+    def cancelLease(sender: KeyPair, leaseId: String, fee: Long, version: TxVersion): Future[Transaction] =
       signedBroadcast(
-        LeaseCancelTransaction
-          .signed(version, sender.publicKey, ByteStr.decodeBase58(leaseId).get, fee, System.currentTimeMillis(), sender.privateKey)
-          .explicitGet()
-          .json()
+        LeaseCancelTransaction(
+          version,
+          sender.publicKey,
+          ByteStr.decodeBase58(leaseId).get,
+          fee,
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey).json()
       )
 
     def activeLeases(sourceAddress: String): Future[Seq[Transaction]] = get(s"/leasing/active/$sourceAddress").as[Seq[Transaction]]
@@ -988,9 +990,8 @@ object AsyncHttpApi extends Assertions {
 
     def waitForHeightAriseAndTxPresent(transactionId: String)(implicit p: Position): Future[Unit] =
       for {
-        allHeights   <- traverse(nodes)(_.waitForTransaction(transactionId).map(_.height))
-        _            <- traverse(nodes)(_.waitForHeight(allHeights.max + 1))
-        finalHeights <- traverse(nodes)(_.waitForTransaction(transactionId).map(_.height))
+        allHeights <- traverse(nodes)(_.waitForTransaction(transactionId).map(_.height))
+        _          <- traverse(nodes)(_.waitForHeight(allHeights.max + 1))
         _ <- waitFor("nodes sync")(1 second)(
           _.waitForTransaction(transactionId).map(_.height),
           (finalHeights: Iterable[Int]) => finalHeights.forall(_ == finalHeights.head)
