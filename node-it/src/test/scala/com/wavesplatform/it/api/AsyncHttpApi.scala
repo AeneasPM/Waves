@@ -6,7 +6,7 @@ import java.util.concurrent.TimeoutException
 import java.util.{NoSuchElementException, UUID}
 
 import com.google.protobuf.ByteString
-import com.wavesplatform.account.{AddressOrAlias, AddressScheme, Alias, KeyPair}
+import com.wavesplatform.account.{AddressOrAlias, AddressScheme, KeyPair}
 import com.wavesplatform.api.http.ConnectReq
 import com.wavesplatform.api.http.RewardApiRoute.RewardStatus
 import com.wavesplatform.api.http.requests.{IssueRequest, TransferRequest}
@@ -354,19 +354,19 @@ object AsyncHttpApi extends Assertions {
         attachment: Option[String] = None
     ): Future[Transaction] =
       signedBroadcast(
-        TransferTransaction
-          .selfSigned(
-            version,
-            sender,
-            AddressOrAlias.fromString(recipient).explicitGet(),
-            Asset.fromString(assetId),
-            amount,
-            Asset.fromString(feeAssetId),
-            fee,
-            attachment.fold(ByteStr.empty)(s => ByteStr(s.getBytes)),
-            System.currentTimeMillis()
-          )
-          .explicitGet()
+        TransferTransaction(
+          version,
+          sender.publicKey,
+          AddressOrAlias.fromString(recipient).explicitGet(),
+          Asset.fromString(assetId),
+          amount,
+          Asset.fromString(feeAssetId),
+          fee,
+          attachment.fold(ByteStr.empty)(s => ByteStr(s.getBytes)),
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey)
           .json()
       )
 
@@ -375,9 +375,16 @@ object AsyncHttpApi extends Assertions {
 
     def lease(sender: KeyPair, recipient: String, amount: Long, fee: Long, version: TxVersion = TxVersion.V2): Future[Transaction] =
       signedBroadcast(
-        LeaseTransaction
-          .selfSigned(version, sender, AddressOrAlias.fromString(recipient).explicitGet(), amount, fee, System.currentTimeMillis())
-          .explicitGet()
+        LeaseTransaction(
+          version,
+          sender.publicKey,
+          AddressOrAlias.fromString(recipient).explicitGet(),
+          amount,
+          fee,
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey)
           .json()
       )
 
@@ -421,10 +428,15 @@ object AsyncHttpApi extends Assertions {
 
     def setScript(sender: KeyPair, script: Option[String] = None, fee: Long = 1000000, version: TxVersion = TxVersion.V1): Future[Transaction] =
       signedBroadcast(
-        SetScriptTransaction
-          .selfSigned(version, sender, script.map(s => ScriptReader.fromBytes(Base64.decode(s)).explicitGet()), fee, System.currentTimeMillis())
-          .explicitGet()
-          .json()
+        SetScriptTransaction(
+          version,
+          sender.publicKey,
+          script.map(s => ScriptReader.fromBytes(Base64.decode(s)).explicitGet()),
+          fee,
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey).json()
       )
 
     def setAssetScript(
@@ -435,17 +447,16 @@ object AsyncHttpApi extends Assertions {
         version: TxVersion = TxVersion.V1
     ): Future[Transaction] =
       signedBroadcast(
-        SetAssetScriptTransaction
-          .selfSigned(
-            version,
-            sender,
-            IssuedAsset(ByteStr.decodeBase58(assetId).get),
-            script.map(s => ScriptReader.fromBytes(Base64.decode(s)).explicitGet()),
-            fee,
-            System.currentTimeMillis()
-          )
-          .explicitGet()
-          .json()
+        SetAssetScriptTransaction(
+          version,
+          sender.publicKey,
+          IssuedAsset(ByteStr.decodeBase58(assetId).get),
+          script.map(s => ScriptReader.fromBytes(Base64.decode(s)).explicitGet()),
+          fee,
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey).json()
       )
 
     def invokeScript(
@@ -483,18 +494,18 @@ object AsyncHttpApi extends Assertions {
         feeAssetId: Option[String] = None,
         version: TxVersion = TxVersion.V1
     ): Future[(JsValue, JsValue)] = {
-      val jsObject = InvokeScriptTransaction
-        .selfSigned(
-          version,
-          caller,
-          AddressOrAlias.fromString(dappAddress).explicitGet(),
-          func.map(fn => FUNCTION_CALL(FunctionHeader.User(fn), args)),
-          payment,
-          fee,
-          feeAssetId.map(aid => IssuedAsset(ByteStr.decodeBase58(aid).get)).getOrElse(Asset.Waves),
-          System.currentTimeMillis()
-        )
-        .explicitGet()
+      val jsObject = InvokeScriptTransaction(
+        version,
+        caller.publicKey,
+        AddressOrAlias.fromString(dappAddress).explicitGet(),
+        func.map(fn => FUNCTION_CALL(FunctionHeader.User(fn), args)),
+        payment,
+        fee,
+        feeAssetId.map(aid => IssuedAsset(ByteStr.decodeBase58(aid).get)).getOrElse(Asset.Waves),
+        System.currentTimeMillis(),
+        Proofs.empty,
+        AddressScheme.current.chainId
+      ).signWith(caller.privateKey)
         .json()
       signedValidate(jsObject).map(jsObject -> _)
     }
@@ -532,18 +543,31 @@ object AsyncHttpApi extends Assertions {
 
     def reissue(sender: KeyPair, assetId: String, quantity: Long, reissuable: Boolean, fee: Long, version: Byte = 1): Future[Transaction] =
       signedBroadcast(
-        ReissueTransaction
-          .selfSigned(version, sender, IssuedAsset(ByteStr.decodeBase58(assetId).get), quantity, reissuable, fee, System.currentTimeMillis())
-          .explicitGet()
-          .json()
+        ReissueTransaction(
+          version,
+          sender.publicKey,
+          IssuedAsset(ByteStr.decodeBase58(assetId).get),
+          quantity,
+          reissuable,
+          fee,
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey).json()
       )
 
     def burn(sender: KeyPair, assetId: String, quantity: Long, fee: Long, version: TxVersion = TxVersion.V2): Future[Transaction] =
       signedBroadcast(
-        BurnTransaction
-          .selfSigned(version, sender, IssuedAsset(ByteStr.decodeBase58(assetId).get), quantity, fee, System.currentTimeMillis())
-          .explicitGet()
-          .json()
+        BurnTransaction(
+          version,
+          sender.publicKey,
+          IssuedAsset(ByteStr.decodeBase58(assetId).get),
+          quantity,
+          fee,
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey).json()
       )
 
     def debugStateChanges(invokeScriptTransactionId: String, amountsAsStrings: Boolean): Future[DebugStateChanges] =
@@ -576,9 +600,16 @@ object AsyncHttpApi extends Assertions {
         amountsAsStrings: Boolean = false
     ): Future[Transaction] =
       signedBroadcast(
-        SponsorFeeTransaction
-          .selfSigned(version, sender, IssuedAsset(ByteStr.decodeBase58(assetId).get), minSponsoredAssetFee, fee, System.currentTimeMillis())
-          .explicitGet()
+        SponsorFeeTransaction(
+          version,
+          sender.publicKey,
+          IssuedAsset(ByteStr.decodeBase58(assetId).get),
+          minSponsoredAssetFee,
+          fee,
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey)
           .json(),
         amountsAsStrings
       )
@@ -602,18 +633,17 @@ object AsyncHttpApi extends Assertions {
         amountsAsStrings: Boolean = false
     ): Future[Transaction] = {
       signedBroadcast(
-        MassTransferTransaction
-          .selfSigned(
-            version,
-            sender,
-            Asset.fromString(assetId),
-            transfers.map(t => ParsedTransfer(AddressOrAlias.fromString(t.recipient).explicitGet(), t.amount)),
-            fee,
-            System.currentTimeMillis(),
-            attachment.fold(ByteStr.empty)(s => ByteStr(s.getBytes()))
-          )
-          .explicitGet()
-          .json(),
+        MassTransferTransaction(
+          version,
+          sender.publicKey,
+          Asset.fromString(assetId),
+          transfers.map(t => ParsedTransfer(AddressOrAlias.fromString(t.recipient).explicitGet(), t.amount)),
+          fee,
+          System.currentTimeMillis(),
+          attachment.fold(ByteStr.empty)(s => ByteStr(s.getBytes())),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey).json(),
         amountsAsStrings
       )
     }
@@ -703,7 +733,9 @@ object AsyncHttpApi extends Assertions {
 
     def createAlias(target: KeyPair, alias: String, fee: Long, version: TxVersion = TxVersion.V2): Future[Transaction] =
       signedBroadcast(
-        CreateAliasTransaction.selfSigned(version, target, Alias.create(alias).explicitGet(), fee, System.currentTimeMillis()).explicitGet().json()
+        CreateAliasTransaction(version, target.publicKey, alias, fee, System.currentTimeMillis(), Proofs.empty, AddressScheme.current.chainId)
+          .signWith(target.privateKey)
+          .json()
       )
 
     def broadcastExchange(
