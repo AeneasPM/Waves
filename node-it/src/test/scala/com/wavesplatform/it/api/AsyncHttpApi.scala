@@ -5,6 +5,7 @@ import java.net.{InetSocketAddress, URLEncoder}
 import java.util.concurrent.TimeoutException
 import java.util.{NoSuchElementException, UUID}
 
+import com.google.protobuf.ByteString
 import com.wavesplatform.account.{AddressOrAlias, AddressScheme, Alias, KeyPair}
 import com.wavesplatform.api.http.ConnectReq
 import com.wavesplatform.api.http.RewardApiRoute.RewardStatus
@@ -402,21 +403,20 @@ object AsyncHttpApi extends Assertions {
         script: Option[String] = None
     ): Future[Transaction] =
       signedBroadcast(
-        IssueTransaction
-          .selfSigned(
-            version,
-            sender,
-            name,
-            description,
-            quantity,
-            decimals,
-            reissuable,
-            script.map(s => ScriptReader.fromBytes(Base64.decode(s)).explicitGet()),
-            fee,
-            System.currentTimeMillis()
-          )
-          .explicitGet()
-          .json()
+        IssueTransaction(
+          version,
+          sender.publicKey,
+          ByteString.copyFromUtf8(name),
+          ByteString.copyFromUtf8(description),
+          quantity,
+          decimals,
+          reissuable,
+          script.map(s => ScriptReader.fromBytes(Base64.decode(s)).explicitGet()),
+          fee,
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(sender.privateKey).json()
       )
 
     def setScript(sender: KeyPair, script: Option[String] = None, fee: Long = 1000000, version: TxVersion = TxVersion.V1): Future[Transaction] =
@@ -459,19 +459,18 @@ object AsyncHttpApi extends Assertions {
         version: TxVersion = TxVersion.V1
     ): Future[(Transaction, JsValue)] =
       signedTraceBroadcast(
-        InvokeScriptTransaction
-          .selfSigned(
-            version,
-            caller,
-            AddressOrAlias.fromString(dappAddress).explicitGet(),
-            func.map(fn => FUNCTION_CALL(FunctionHeader.User(fn), args)),
-            payment,
-            fee,
-            feeAssetId.map(aid => IssuedAsset(ByteStr.decodeBase58(aid).get)).getOrElse(Asset.Waves),
-            System.currentTimeMillis()
-          )
-          .explicitGet()
-          .json()
+        InvokeScriptTransaction(
+          version,
+          caller.publicKey,
+          AddressOrAlias.fromString(dappAddress).explicitGet(),
+          func.map(fn => FUNCTION_CALL(FunctionHeader.User(fn), args)),
+          payment,
+          fee,
+          feeAssetId.map(aid => IssuedAsset(ByteStr.decodeBase58(aid).get)).getOrElse(Asset.Waves),
+          System.currentTimeMillis(),
+          Proofs.empty,
+          AddressScheme.current.chainId
+        ).signWith(caller.privateKey).json()
       )
 
     def validateInvokeScript(

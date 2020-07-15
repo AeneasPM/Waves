@@ -118,7 +118,7 @@ class IssueTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
 
   test(s"Not able to create asset without name") {
     for (v <- issueTxSupportedVersions) {
-      assertApiError(sender.issue(firstKeyPair, null, null, someAssetAmount, 2, reissuable = false, issueFee, version = v)) { error =>
+      assertApiError(sender.issue(firstKeyPair, "", "", someAssetAmount, 2, reissuable = false, issueFee, version = v)) { error =>
         error.message should include regex "failed to parse json message"
         error.json.fields.map(_._1) should contain("validationErrors")
       }
