@@ -165,7 +165,7 @@ class AssetSupportedTransactionsSuite extends BaseTransactionSuite {
       s"""
          |match tx {
          |  case _: SetAssetScriptTransaction => true
-         |  case t:  TransferTransaction => let issuer = extract(addressFromString("${firstKeyPair}"))
+         |  case t:  TransferTransaction => let issuer = extract(addressFromString("$firstAddress"))
          |  isDefined(getInteger(issuer,toBase58String(t.id))) == true
          |  case _ => false
          |}
@@ -314,7 +314,7 @@ class AssetSupportedTransactionsSuite extends BaseTransactionSuite {
          |  case _: SetAssetScriptTransaction => true
          |  case m:  MassTransferTransaction =>
          |  let twoTransfers = size(m.transfers) == 2
-         |  let issuerIsRecipient = m.transfers[0].recipient == addressFromString("${firstKeyPair}")
+         |  let issuerIsRecipient = m.transfers[0].recipient == addressFromString("$firstAddress")
          |  let taxesPaid = m.transfers[0].amount >= m.transfers[1].amount / 10
          |  twoTransfers && issuerIsRecipient && taxesPaid
          |  case _ => false

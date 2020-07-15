@@ -170,7 +170,7 @@ class HodlContractTransactionSuite extends BaseTransactionSuite with CancelAfter
 
     val stateChangesTransfers = stateChangesInfo.get.transfers.head
     stateChangesInfo.get.transfers.length shouldBe 1
-    stateChangesTransfers.address shouldBe caller
+    stateChangesTransfers.address shouldBe callerAddress
     stateChangesTransfers.amount shouldBe 1.49.waves
     stateChangesTransfers.asset shouldBe None
   }

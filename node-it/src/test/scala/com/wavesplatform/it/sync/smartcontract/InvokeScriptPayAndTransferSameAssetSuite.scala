@@ -48,7 +48,7 @@ class InvokeScriptPayAndTransferSameAssetSuite extends BaseTransactionSuite with
           |{-# STDLIB_VERSION 3 #-}
           |{-# CONTENT_TYPE DAPP #-}
           |
-          |let receiver = Address(base58'$receiver')
+          |let receiver = Address(base58'$receiverAddress')
           |
           |@Callable(i)
           |func resendPayment() = {

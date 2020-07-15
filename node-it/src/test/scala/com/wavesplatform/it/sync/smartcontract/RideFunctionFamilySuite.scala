@@ -109,7 +109,7 @@ class RideFunctionFamilySuite extends BaseTransactionSuite with CancelAfterFailu
   }
 
   test("function family (DAps in V3)") {
-    for(f <- List("blake", "keccak", "sha", "sig", "rsa", "rsa16")) {
+    for(f <- List("blake", "keccak", "sha", "sig", "rsa1", "rsa2")) {
       assertApiError(sender.scriptCompile(ffDApp(3)(f))) { error =>
         error.statusCode shouldBe 400
         error.id shouldBe ScriptCompilerError.Id

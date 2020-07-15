@@ -60,7 +60,7 @@ class InvokeScriptTransactionStateChangesTransfersSuite extends BaseTransactionS
     val firstTransferAssetAmountOpt = txStateChanges.stateChanges.map(_.transfers.head.amount)
 
     transferCountOpt shouldBe Some(1)
-    firstTransferAddrOpt shouldBe Some(callerAndRecipient)
+    firstTransferAddrOpt shouldBe Some(callerAndRecipient.toAddress.toString)
     firstTransferAssetAmountOpt shouldBe Some(transferAmount)
   }
 
@@ -85,7 +85,7 @@ class InvokeScriptTransactionStateChangesTransfersSuite extends BaseTransactionS
     val firstTransferAssetAmountOpt = txStateChanges.stateChanges.map(_.transfers.head.amount)
 
     transferCountOpt shouldBe Some(1)
-    firstTransferAddrOpt shouldBe Some(callerAndRecipient)
+    firstTransferAddrOpt shouldBe Some(callerAndRecipient.toAddress.toString)
     firstTransferAssetAmountOpt shouldBe Some(transferAmount)
   }
 
@@ -110,7 +110,7 @@ class InvokeScriptTransactionStateChangesTransfersSuite extends BaseTransactionS
     val firstTransferAssetAmountOpt = txStateChanges.stateChanges.map(_.transfers.head.amount)
 
     transferCountOpt shouldBe Some(1)
-    firstTransferAddrOpt shouldBe Some(callerAndRecipient)
+    firstTransferAddrOpt shouldBe Some(callerAndRecipient.toAddress.toString)
     firstTransferAssetAmountOpt shouldBe Some(transferAmount)
   }
 
@@ -135,7 +135,7 @@ class InvokeScriptTransactionStateChangesTransfersSuite extends BaseTransactionS
     val firstTransferAssetAmountOpt = txStateChanges.stateChanges.map(_.transfers.head.amount)
 
     transferCountOpt shouldBe Some(1)
-    firstTransferAddrOpt shouldBe Some(callerAndRecipient)
+    firstTransferAddrOpt shouldBe Some(callerAndRecipient.toAddress.toString)
     firstTransferAssetAmountOpt shouldBe Some(transferAmount)
   }
 }
