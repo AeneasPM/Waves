@@ -35,6 +35,7 @@ abstract class Node(val config: Config) extends AutoCloseable {
     .build()
 
   private[this] val wallet = Wallet(settings.walletSettings.copy(file = None))
+  wallet.generateNewAccounts(1)
 
   def generateKeyPair(): KeyPair = wallet.synchronized {
     wallet.generateNewAccount().get
