@@ -12,43 +12,42 @@ import com.wavesplatform.transaction.{CreateAliasTransaction, TxVersion}
 import org.asynchttpclient.Response
 import org.scalatest
 import org.scalatest.Assertion
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{JsString, JsValue, Json}
 
 class AmountAsStringSuite extends BaseTransactionSuite {
 
   val (headerName, headerValue) = ("Accept", "application/json;large-significand-format=string")
 
-  private val firstAddressString: String = firstAddress
   test("amount as string in assets api") {
     val assetId = sender.issue(firstKeyPair, "assetName", "description", someAssetAmount, 8, fee = issueFee, waitForTx = true).id
     sender.issue(firstKeyPair, "assetName", "description", quantity = 1, decimals = 0, reissuable = false, fee = issueFee, waitForTx = true).id
     val currentHeight = sender.height
     sender.assetsDetails(assetId, amountsAsStrings = true).quantity shouldBe someAssetAmount
-    sender.assetBalance(firstAddressString, assetId, amountsAsStrings = true).balance shouldBe someAssetAmount
-    sender.assetsBalance(firstAddressString, amountsAsStrings = true).balances.head.balance shouldBe someAssetAmount
-    sender.nftList(firstAddressString, 1, amountsAsStrings = true).head.quantity shouldBe 1
+    sender.assetBalance(firstAddress, assetId, amountsAsStrings = true).balance shouldBe someAssetAmount
+    sender.assetsBalance(firstAddress, amountsAsStrings = true).balances.head.balance shouldBe someAssetAmount
+    sender.nftList(firstAddress, 1, amountsAsStrings = true).head.quantity shouldBe 1
 
     sender.waitForHeight(currentHeight + 1)
     val assetDistribution = sender.getWithCustomHeader(
       s"/assets/$assetId/distribution/$currentHeight/limit/1",
       headerValue = "application/json;large-significand-format=string"
     )
-    (parseResponse(assetDistribution) \ "items" \ firstAddressString).as[String] shouldBe s"$someAssetAmount"
+    (parseResponse(assetDistribution) \ "items" \ firstAddress).get shouldBe JsString(someAssetAmount.toString)
   }
 
   test("amount as string in addresses api") {
-    val firstBalance = sender.balanceDetails(firstAddressString)
-    sender.balance(firstAddressString, amountsAsStrings = true).balance shouldBe firstBalance.regular
-    sender.balance(firstAddressString, confirmations = Some(1), amountsAsStrings = true).balance shouldBe firstBalance.regular
+    val firstBalance = sender.balanceDetails(firstAddress)
+    sender.balance(firstAddress, amountsAsStrings = true).balance shouldBe firstBalance.regular
+    sender.balance(firstAddress, confirmations = Some(1), amountsAsStrings = true).balance shouldBe firstBalance.regular
 
-    val balanceDetails = sender.balanceDetails(firstAddressString, amountsAsStrings = true)
+    val balanceDetails = sender.balanceDetails(firstAddress, amountsAsStrings = true)
     balanceDetails.regular shouldBe firstBalance.regular
     balanceDetails.generating shouldBe firstBalance.generating
     balanceDetails.available shouldBe firstBalance.available
     balanceDetails.effective shouldBe firstBalance.effective
 
-    sender.effectiveBalance(firstAddressString, amountsAsStrings = true).balance shouldBe firstBalance.effective
-    sender.effectiveBalance(firstAddressString, confirmations = Some(1), amountsAsStrings = true).balance shouldBe firstBalance.effective
+    sender.effectiveBalance(firstAddress, amountsAsStrings = true).balance shouldBe firstBalance.effective
+    sender.effectiveBalance(firstAddress, confirmations = Some(1), amountsAsStrings = true).balance shouldBe firstBalance.effective
   }
 
   test("amount as string in exchange transaction") {
@@ -276,24 +275,24 @@ class AmountAsStringSuite extends BaseTransactionSuite {
 
   test("amount as string in consensus api") {
     val firstGeneratingBalance = sender.balanceDetails(firstAddress).generating
-    sender.generatingBalance(firstAddressString, amountsAsStrings = true).balance shouldBe firstGeneratingBalance
+    sender.generatingBalance(firstAddress, amountsAsStrings = true).balance shouldBe firstGeneratingBalance
   }
 
   test("amount as string in debug api") {
-    val firstBalance = sender.balanceDetails(firstAddressString).available
-    val portfolio    = sender.debugPortfoliosFor(firstAddressString, considerUnspent = false, amountsAsStrings = true)
+    val firstBalance = sender.balanceDetails(firstAddress).available
+    val portfolio    = sender.debugPortfoliosFor(firstAddress, considerUnspent = false, amountsAsStrings = true)
     portfolio.balance shouldBe firstBalance
     portfolio.lease.in shouldBe 0
     portfolio.lease.out shouldBe 0
 
-    sender.debugBalanceHistory(firstAddressString, amountsAsStrings = true).head.balance shouldBe firstBalance
+    sender.debugBalanceHistory(firstAddress, amountsAsStrings = true).head.balance shouldBe firstBalance
 
     val stateWavesOnHeight = sender.getWithCustomHeader(
       s"/debug/stateWaves/${sender.height}",
       headerValue = "application/json;large-significand-format=string",
       withApiKey = true
     )
-    (parseResponse(stateWavesOnHeight) \ s"$firstKeyPair").as[String] shouldBe s"$firstBalance"
+    (parseResponse(stateWavesOnHeight) \ firstAddress).get shouldBe JsString(firstBalance.toString)
   }
 
   private def parseResponse(response: Response): JsValue = Json.parse(response.getResponseBody)

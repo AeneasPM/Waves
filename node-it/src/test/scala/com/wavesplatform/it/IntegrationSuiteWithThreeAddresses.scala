@@ -28,14 +28,14 @@ trait IntegrationSuiteWithThreeAddresses
 
   protected def sender: Node = miner
 
-  protected val firstKeyPair: KeyPair = sender.createKeyPair()
-  protected val firstAddress: String  = firstKeyPair.toAddress.toString
+  protected lazy val firstKeyPair: KeyPair = sender.createKeyPair()
+  protected lazy val firstAddress: String  = firstKeyPair.toAddress.toString
 
-  protected val secondKeyPair: KeyPair = sender.createKeyPair()
-  protected val secondAddress: String  = secondKeyPair.toAddress.toString
+  protected lazy val secondKeyPair: KeyPair = sender.createKeyPair()
+  protected lazy val secondAddress: String  = secondKeyPair.toAddress.toString
 
-  protected val thirdKeyPair: KeyPair = sender.createKeyPair()
-  protected val thirdAddress: String  = thirdKeyPair.toAddress.toString
+  protected lazy val thirdKeyPair: KeyPair = sender.createKeyPair()
+  protected lazy val thirdAddress: String  = thirdKeyPair.toAddress.toString
 
   abstract protected override def beforeAll(): Unit = {
     super.beforeAll()
