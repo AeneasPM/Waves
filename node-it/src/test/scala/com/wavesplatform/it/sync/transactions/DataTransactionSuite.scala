@@ -37,7 +37,8 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
 
   protected override def beforeAll(): Unit = {
     super.beforeAll()
-    // explicitly create new address in node's wallet
+    // explicitly create two new addresses in node's wallet
+    sender.postForm("/addresses")
     sender.postForm("/addresses")
     sender.transfer(firstKeyPair, fourthAddress, 10.waves, minFee, waitForTx = true)
   }

@@ -84,6 +84,9 @@ class SetAssetScriptTransactionSuite extends BaseTransactionSuite {
 
     nodes.waitForHeightAriseAndTxPresent(assetWOScript)
     nodes.waitForHeightAriseAndTxPresent(assetWScript)
+    sender.postForm("/addresses")
+    sender.postForm("/addresses")
+    sender.postForm("/addresses")
   }
 
   test("issuer cannot change script on asset w/o initial script") {
@@ -276,10 +279,10 @@ class SetAssetScriptTransactionSuite extends BaseTransactionSuite {
           Json.obj(
             "version" -> v,
             "type"    -> SetAssetScriptTransaction.typeId,
-            "sender"  -> firstKeyPair,
+            "sender"  -> firstAddress,
             "fee"     -> setAssetScriptFee,
             "assetId" -> assetWScript,
-            "script"  -> scriptBase64
+            "script"  -> scriptBase64,
           )
         )
         Json.parse(rs.getResponseBody).as[JsObject]

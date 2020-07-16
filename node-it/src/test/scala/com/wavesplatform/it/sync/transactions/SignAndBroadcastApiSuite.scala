@@ -416,7 +416,8 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with Be
 
   protected override def beforeAll(): Unit = {
     super.beforeAll()
-    // explicitly create two more addresses in node's wallet
+    // explicitly create three more addresses in node's wallet
+    sender.postForm("/addresses")
     sender.postForm("/addresses")
     sender.postForm("/addresses")
   }

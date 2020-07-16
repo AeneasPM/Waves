@@ -4,7 +4,7 @@ import com.typesafe.config.Config
 import com.wavesplatform.account.KeyPair
 import com.wavesplatform.it.api.SyncHttpApi._
 import com.wavesplatform.it.transactions.NodesFromDocker
-import com.wavesplatform.it.{Node, NodeConfigs, ReportingTestName, TransferSending}
+import com.wavesplatform.it.{LoadTest, Node, NodeConfigs, ReportingTestName, TransferSending}
 import com.wavesplatform.lang.v1.estimator.v2.ScriptEstimatorV2
 import com.wavesplatform.state.{BooleanDataEntry, IntegerDataEntry, StringDataEntry}
 import com.wavesplatform.transaction.TxVersion
@@ -13,10 +13,12 @@ import com.wavesplatform.transaction.smart.script.ScriptCompiler
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{CancelAfterFailure, FunSuite, Matchers}
 import com.wavesplatform.common.utils.EitherExt2
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Random
 
+@LoadTest
 class RollbackSuite
     extends FunSuite
     with CancelAfterFailure
