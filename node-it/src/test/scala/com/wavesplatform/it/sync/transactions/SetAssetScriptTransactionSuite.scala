@@ -1,7 +1,8 @@
 package com.wavesplatform.it.sync.transactions
 
 import akka.http.scaladsl.model.StatusCodes
-import com.wavesplatform.api.http.ApiError.{CustomValidationError, Mistiming, StateCheckFailed, WrongJson}
+import com.wavesplatform.account.KeyPair
+import com.wavesplatform.api.http.ApiError.{Mistiming, StateCheckFailed, WrongJson}
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.{Base58, EitherExt2}
 import com.wavesplatform.crypto
@@ -25,7 +26,7 @@ class SetAssetScriptTransactionSuite extends BaseTransactionSuite {
 
   var assetWOScript    = ""
   var assetWScript     = ""
-  var assetWScript2     = ""
+  var assetWScript2    = ""
   private val accountB = secondKeyPair
   private val unchangeableScript = ScriptCompiler(
     s"""match tx {
@@ -93,16 +94,30 @@ class SetAssetScriptTransactionSuite extends BaseTransactionSuite {
         AssertiveApiError(StateCheckFailed.Id, StateCheckFailed.message("Cannot set script on an asset issued without a script"))
       )
       assertApiError(
-        sender.setAssetScript(assetWOScript, firstKeyPair, setAssetScriptFee, version = v),
-        AssertiveApiError(CustomValidationError.Id, "Cannot set empty script")
+        broadcastSetAssetScriptJson(assetWOScript, firstKeyPair, setAssetScriptFee, version = v),
+        AssertiveApiError(WrongJson.Id, "failed to parse json message", matchMessage = true)
       )
       assertApiError(
-        sender.setAssetScript(assetWOScript, firstKeyPair, setAssetScriptFee, Some(""), version = v),
-        AssertiveApiError(CustomValidationError.Id, "Cannot set empty script")
+        broadcastSetAssetScriptJson(assetWOScript, firstKeyPair, setAssetScriptFee, Some(""), version = v),
+        AssertiveApiError(WrongJson.Id, "failed to parse json message", matchMessage = true)
       )
       miner.assertBalances(firstAddress, balance, eff)
     }
   }
+
+  private def broadcastSetAssetScriptJson(assetId: String, issuer: KeyPair, fee: Long, script: Option[String] = None, version: Byte) =
+    sender.signedBroadcast(
+      Json.obj(
+        "type"            -> SetAssetScriptTransaction.typeId,
+        "version"         -> version,
+        "assetId"         -> assetId,
+        "sender"          -> issuer.toAddress,
+        "senderPublicKey" -> issuer.publicKey,
+        "fee"             -> fee,
+        "script"          -> script.fold[JsValue](JsNull)(JsString),
+        "timestamp"       -> System.currentTimeMillis()
+      )
+    )
 
   test("non-issuer cannot change script") {
     /*
@@ -138,9 +153,9 @@ class SetAssetScriptTransactionSuite extends BaseTransactionSuite {
         error.id shouldBe StateCheckFailed.Id
         error.message shouldBe StateCheckFailed.message("Asset was issued by other address")
       }
-      assertApiError(sender.setAssetScript(assetWAnotherOwner, secondKeyPair, setAssetScriptFee, Some(""), version = v)) { error =>
-        error.id shouldBe CustomValidationError.Id
-        error.message shouldBe "Cannot set empty script"
+      assertApiError(broadcastSetAssetScriptJson(assetWAnotherOwner, secondKeyPair, setAssetScriptFee, Some(""), version = v)) { error =>
+        error.id shouldBe WrongJson.Id
+        error.message shouldBe "failed to parse json message"
       }
     }
   }
@@ -171,13 +186,13 @@ class SetAssetScriptTransactionSuite extends BaseTransactionSuite {
       estimator
     ).explicitGet()._1.bytes().base64
 
-    val details        = miner.assetsDetails(assetWScript, true).scriptDetails.getOrElse(fail("Expecting to get asset details"))
+    val details = miner.assetsDetails(assetWScript, true).scriptDetails.getOrElse(fail("Expecting to get asset details"))
     assert(details.scriptComplexity == 1)
     assert(details.scriptText == "true")
     assert(details.script == scriptBase64)
     for (v <- setAssetScrTxSupportedVersions) {
       val (balance, eff) = miner.accountBalances(firstAddress)
-      val txId = sender.setAssetScript(assetWScript, firstKeyPair, setAssetScriptFee, Some(script2), version = v).id
+      val txId           = sender.setAssetScript(assetWScript, firstKeyPair, setAssetScriptFee, Some(script2), version = v).id
       nodes.waitForHeightAriseAndTxPresent(txId)
       miner.assertBalances(firstAddress, balance - setAssetScriptFee, eff - setAssetScriptFee)
       val details2 = miner.assetsDetails(assetWScript, true).scriptDetails.getOrElse(fail("Expecting to get asset details"))
@@ -264,7 +279,7 @@ class SetAssetScriptTransactionSuite extends BaseTransactionSuite {
             "sender"  -> firstKeyPair,
             "fee"     -> setAssetScriptFee,
             "assetId" -> assetWScript,
-            "script"  -> Some(scriptBase64)
+            "script"  -> scriptBase64
           )
         )
         Json.parse(rs.getResponseBody).as[JsObject]
@@ -296,11 +311,11 @@ class SetAssetScriptTransactionSuite extends BaseTransactionSuite {
 
   test("try to update script to null") {
     for (v <- setAssetScrTxSupportedVersions) {
-      assertApiError(sender.setAssetScript(assetWScript, firstKeyPair, setAssetScriptFee, version = v)) { error =>
-        error.message should include regex "Cannot set empty script"
+      assertApiError(broadcastSetAssetScriptJson(assetWScript, firstKeyPair, setAssetScriptFee, version = v)) { error =>
+        error.message should include regex "failed to parse json message"
       }
-      assertApiError(sender.setAssetScript(assetWScript, firstKeyPair, setAssetScriptFee, Some(""), version = v)) { error =>
-        error.message should include regex "Cannot set empty script"
+      assertApiError(broadcastSetAssetScriptJson(assetWScript, firstKeyPair, setAssetScriptFee, Some(""), version = v)) { error =>
+        error.message should include regex "failed to parse json message"
       }
     }
   }
