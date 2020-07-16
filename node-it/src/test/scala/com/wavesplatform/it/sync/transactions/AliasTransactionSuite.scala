@@ -44,7 +44,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
       val aliasFee         = createAlias(firstKeyPair, alias)
       miner.assertBalances(firstAddress, balance1 - aliasFee, eff1 - aliasFee)
 
-      assertApiErrorRaised(createAliasFromJson(firstAddress, alias, minFee, version = v))
+      assertApiErrorRaised(createAliasFromJson(firstKeyPair, alias, minFee, version = v))
       miner.assertBalances(firstAddress, balance1 - aliasFee, eff1 - aliasFee)
     }
   }
@@ -56,7 +56,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
 
       val (balance1, eff1) = miner.accountBalances(firstAddress)
       val aliasFee         = createAlias(firstKeyPair, alias)
-      assertBadRequestAndMessage(createAliasFromJson(secondAddress, alias, minFee, version = v), "Alias already claimed")
+      assertBadRequestAndMessage(createAliasFromJson(secondKeyPair, alias, minFee, version = v), "Alias already claimed")
       miner.assertBalances(firstAddress, balance1 - aliasFee, eff1 - aliasFee)
     }
   }
@@ -109,7 +109,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
   forAll(invalid_aliases_names) { (alias: String, message: String) =>
     test(s"Not able to create alias named $alias") {
       for (v <- aliasTxSupportedVersions) {
-        assertBadRequestAndMessage(createAliasFromJson(secondAddress, alias, minFee, version = v), message)
+        assertBadRequestAndMessage(createAliasFromJson(secondKeyPair, alias, minFee, version = v), message)
       }
     }
   }
@@ -139,7 +139,7 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
       val balance = miner.accountBalances(firstAddress)._1
       val alias   = randomAlias()
       assertBadRequestAndMessage(
-        createAliasFromJson(firstAddress, alias, balance + minFee, version = v),
+        createAliasFromJson(firstKeyPair, alias, balance + minFee, version = v),
         "State check failed. Reason: Accounts balance errors"
       )
     }
@@ -153,15 +153,17 @@ class AliasTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
     } else 0
   }
 
-  private def createAliasFromJson(targetAddress: String, alias: String, fee: Long, version: Byte) =
+  private def createAliasFromJson(target: KeyPair, alias: String, fee: Long, version: Byte) =
     sender.signedBroadcast(
       Json.obj(
-        "version" -> version,
-        "type"    -> CreateAliasTransaction.typeId,
-        "version" -> version,
-        "sender"  -> targetAddress,
-        "fee"     -> fee,
-        "alias"   -> alias
+        "version"         -> version,
+        "type"            -> CreateAliasTransaction.typeId,
+        "version"         -> version,
+        "sender"          -> target.toAddress.toString,
+        "senderPublicKey" -> target.publicKey.toString,
+        "fee"             -> fee,
+        "alias"           -> alias,
+        "timestamp"       -> System.currentTimeMillis()
       )
     )
 
