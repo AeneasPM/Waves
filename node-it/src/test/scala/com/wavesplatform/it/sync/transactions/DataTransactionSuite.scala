@@ -367,19 +367,17 @@ class DataTransactionSuite extends BaseTransactionSuite with EitherValues {
 
   test("transaction requires a valid proof") {
     for (v <- dataTxSupportedVersions) {
-      def request: JsObject = {
-        val rs = sender.postJsonWithApiKey(
-          "/transactions/sign",
-          Json.obj(
-            "version" -> v,
-            "type"    -> DataTransaction.typeId,
-            "sender"  -> firstAddress,
-            "data"    -> List(DataEntry.Format.writes(IntegerDataEntry("int", 333))),
-            "fee"     -> 100000
+      def request: JsObject =
+        DataTransaction
+          .selfSigned(
+            v,
+            firstKeyPair,
+            List(IntegerDataEntry("int", 333)),
+            minFee,
+            System.currentTimeMillis()
           )
-        )
-        Json.parse(rs.getResponseBody).as[JsObject]
-      }
+          .explicitGet()
+          .json()
 
       def id(obj: JsObject): String = obj.value("id").as[String]
 

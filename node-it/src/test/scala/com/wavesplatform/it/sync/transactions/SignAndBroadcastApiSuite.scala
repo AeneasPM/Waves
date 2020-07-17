@@ -28,8 +28,6 @@ import play.api.libs.json._
 import scala.util.Random
 
 class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with BeforeAndAfterAll {
-
-
   test("height should always be reported for transactions") {
     val txId = sender.transfer(firstKeyPair, secondAddress, 1.waves, fee = minFee).id
 
@@ -63,12 +61,14 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with Be
     assertSignBadJson(obsoleteTx + ("type" -> Json.toJson(PaymentTransaction.typeId)), "transaction type not supported", 501)
 
     val bigBaseTx =
-      Json.obj("type"       -> TransferTransaction.typeId,
-               "sender"     -> firstAddress,
-               "recipient"  -> firstAddress,
-               "amount"     -> 1,
-               "fee"        -> 100000,
-               "attachment" -> "W" * 524291)
+      Json.obj(
+        "type"       -> TransferTransaction.typeId,
+        "sender"     -> firstAddress,
+        "recipient"  -> firstAddress,
+        "amount"     -> 1,
+        "fee"        -> 100000,
+        "attachment" -> "W" * 524291
+      )
     assertSignBadJson(bigBaseTx, "failed to parse json message")
   }
 
@@ -129,7 +129,7 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with Be
 
     for (j <- List(jsonV1, jsonV2)) {
       assertBroadcastBadJson(j - "type", "failed to parse json message")
-      assertBroadcastBadJson(j - "type" + ("type" -> Json.toJson(88)), "Bad transaction type")
+      assertBroadcastBadJson(j - "type" + ("type"       -> Json.toJson(88)), "Bad transaction type")
       assertBroadcastBadJson(j - "chainId" + ("chainId" -> Json.toJson(123)), "Wrong chain-id")
       assertBroadcastBadJson(j - "alias", "failed to parse json message")
     }
@@ -158,13 +158,17 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with Be
         version = v
       )
 
-      signBroadcastAndCalcFee(Json.obj("type" -> BurnTransaction.typeId, "quantity" -> 0, "assetId" -> issueId, "sender" -> firstAddress),
-                              usesProofs = isProof,
-                              version = v)
+      signBroadcastAndCalcFee(
+        Json.obj("type" -> BurnTransaction.typeId, "quantity" -> 0, "assetId" -> issueId, "sender" -> firstAddress),
+        usesProofs = isProof,
+        version = v
+      )
 
-      signBroadcastAndCalcFee(Json.obj("type" -> BurnTransaction.typeId, "quantity" -> 100.waves, "assetId" -> issueId, "sender" -> firstAddress),
-                              usesProofs = isProof,
-                              version = v)
+      signBroadcastAndCalcFee(
+        Json.obj("type" -> BurnTransaction.typeId, "quantity" -> 100.waves, "assetId" -> issueId, "sender" -> firstAddress),
+        usesProofs = isProof,
+        version = v
+      )
 
       signBroadcastAndCalcFee(
         Json.obj(
@@ -218,11 +222,14 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with Be
         signBroadcastAndCalcFee(
           Json.obj("type" -> LeaseTransaction.typeId, "sender" -> firstAddress, "amount" -> leasingAmount, "recipient" -> secondAddress),
           usesProofs = isProof,
-          version = v)
+          version = v
+        )
 
-      signBroadcastAndCalcFee(Json.obj("type" -> LeaseCancelTransaction.typeId, "sender" -> firstAddress, "txId" -> leaseId),
-                              usesProofs = isProof,
-                              version = v)
+      signBroadcastAndCalcFee(
+        Json.obj("type" -> LeaseCancelTransaction.typeId, "sender" -> firstAddress, "txId" -> leaseId),
+        usesProofs = isProof,
+        version = v
+      )
     }
   }
 
@@ -230,9 +237,11 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with Be
     for (v <- supportedVersions) {
       val isProof = Option(v).nonEmpty
       val rnd     = Random.alphanumeric.take(9).mkString.toLowerCase
-      signBroadcastAndCalcFee(Json.obj("type" -> CreateAliasTransaction.typeId, "sender" -> firstAddress, "alias" -> s"myalias$rnd"),
-                              usesProofs = isProof,
-                              version = v)
+      signBroadcastAndCalcFee(
+        Json.obj("type" -> CreateAliasTransaction.typeId, "sender" -> firstAddress, "alias" -> s"myalias$rnd"),
+        usesProofs = isProof,
+        version = v
+      )
     }
   }
 
@@ -312,6 +321,8 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with Be
   }
 
   test("/transactions/sign/{signerAddress} should sign a transaction by key of signerAddress") {
+    val firstAddress = sender.createKeyPairServerSide().toAddress.stringRepr
+
     val json = Json.obj(
       "type"      -> TransferTransaction.typeId,
       "sender"    -> firstAddress,
@@ -328,9 +339,9 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with Be
     assert(signedRequest.recipient == secondAddress)
     assert(signedRequest.fee == minFee)
     assert(signedRequest.amount == transferAmount)
-    val signature  = Base58.tryDecodeWithLimit((signedRequestJson \ "signature").as[String]).get
-    val tx         = signedRequest.toTx.explicitGet()
-    val keyPair = thirdKeyPair
+    val signature = Base58.tryDecodeWithLimit((signedRequestJson \ "signature").as[String]).get
+    val tx        = signedRequest.toTx.explicitGet()
+    val keyPair   = thirdKeyPair
     assert(crypto.verify(ByteStr(signature), tx.bodyBytes(), keyPair.publicKey))
   }
 
@@ -385,25 +396,35 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with Be
       val amount = math.min(buy.amount, sell.amount)
       val tx =
         if (tver == 1) {
-          ExchangeTransaction.signed(1.toByte, matcher = matcher.privateKey, order1 = buy.asInstanceOf[Order],
+          ExchangeTransaction
+            .signed(
+              1.toByte,
+              matcher = matcher.privateKey,
+              order1 = buy.asInstanceOf[Order],
               order2 = sell.asInstanceOf[Order],
               amount = amount,
               price = sellPrice,
               buyMatcherFee = (BigInt(mf) * amount / buy.amount).toLong,
               sellMatcherFee = (BigInt(mf) * amount / sell.amount).toLong,
               fee = mf,
-              timestamp = ts)
+              timestamp = ts
+            )
             .explicitGet()
             .json()
         } else {
-          ExchangeTransaction.signed(2.toByte, matcher = matcher.privateKey, order1 = buy,
+          ExchangeTransaction
+            .signed(
+              2.toByte,
+              matcher = matcher.privateKey,
+              order1 = buy,
               order2 = sell,
               amount = amount,
               price = sellPrice,
               buyMatcherFee = (BigInt(mf) * amount / buy.amount).toLong,
               sellMatcherFee = (BigInt(mf) * amount / sell.amount).toLong,
               fee = mf,
-              timestamp = ts)
+              timestamp = ts
+            )
             .explicitGet()
             .json()
         }

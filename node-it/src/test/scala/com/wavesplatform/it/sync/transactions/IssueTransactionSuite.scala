@@ -1,5 +1,6 @@
 package com.wavesplatform.it.sync.transactions
 
+import com.google.protobuf.ByteString
 import com.wavesplatform.account.AddressScheme
 import com.wavesplatform.api.http.ApiError.{CustomValidationError, InvalidName, NonPositiveAmount, TooBigArrayAllocation}
 import com.wavesplatform.it.api.IssueTransactionInfo
@@ -7,7 +8,10 @@ import com.wavesplatform.it.api.SyncHttpApi._
 import com.wavesplatform.it.sync._
 import com.wavesplatform.it.transactions.BaseTransactionSuite
 import com.wavesplatform.it.util._
+import com.wavesplatform.transaction.assets.IssueTransaction
+import com.wavesplatform.transaction.{Proofs, TxVersion}
 import org.scalatest.prop.TableDrivenPropertyChecks
+import play.api.libs.json.Json
 
 class IssueTransactionSuite extends BaseTransactionSuite with TableDrivenPropertyChecks {
   test("asset issue changes issuer's asset balance; issuer's waves balance is decreased by fee") {
@@ -81,12 +85,26 @@ class IssueTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
   forAll(invalidScript) { (script: String, error: String) =>
     test(s"Try to put incorrect script=$script") {
       for (v <- issueTxSupportedVersions) {
-        val assetName        = "myasset"
-        val assetDescription = "my asset description"
+        val json = {
+          val tx = IssueTransaction(
+            TxVersion.V1,
+            firstKeyPair.publicKey,
+            ByteString.copyFromUtf8("123"),
+            ByteString.EMPTY,
+            1,
+            2,
+            false,
+            None,
+            issueFee,
+            System.currentTimeMillis(),
+            Proofs.empty,
+            AddressScheme.current.chainId
+          )
+          tx.json() ++ Json.obj("script" -> script)
+        }
 
         assertApiError(
-          sender
-            .issue(firstKeyPair, assetName, assetDescription, someAssetAmount, 2, reissuable = false, issueFee, script = Some(script), version = v),
+          sender.signedBroadcast(json),
           CustomValidationError(s"ScriptParseError($error)")
         )
       }
@@ -119,8 +137,7 @@ class IssueTransactionSuite extends BaseTransactionSuite with TableDrivenPropert
   test(s"Not able to create asset without name") {
     for (v <- issueTxSupportedVersions) {
       assertApiError(sender.issue(firstKeyPair, "", "", someAssetAmount, 2, reissuable = false, issueFee, version = v)) { error =>
-        error.message should include regex "failed to parse json message"
-        error.json.fields.map(_._1) should contain("validationErrors")
+        error.message should include("invalid name")
       }
     }
   }

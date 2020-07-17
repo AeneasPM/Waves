@@ -581,6 +581,8 @@ object SyncHttpApi extends Assertions {
 
     def createKeyPair(): KeyPair = sync(async(n).createKeyPair())
 
+    def createKeyPairServerSide(): KeyPair = sync(async(n).createKeyPairServerSide())
+
     def rawTransactionInfo(txId: String): JsValue =
       sync(async(n).rawTransactionInfo(txId))
 

@@ -807,6 +807,12 @@ object AsyncHttpApi extends Assertions {
 
     def createKeyPair(): Future[KeyPair] = Future.successful(n.generateKeyPair())
 
+    def createKeyPairServerSide(): Future[KeyPair] =
+      for {
+        address <- post(s"${n.nodeApiEndpoint}/addresses").as[JsValue].map(v => (v \ "address").as[String])
+        seed    <- seed(address)
+      } yield KeyPair.fromSeed(seed).explicitGet()
+
     def waitForNextBlock: Future[BlockHeader] =
       for {
         currentBlock <- lastBlockHeader()

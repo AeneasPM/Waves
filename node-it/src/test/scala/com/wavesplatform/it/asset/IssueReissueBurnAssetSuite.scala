@@ -293,15 +293,15 @@ class IssueReissueBurnAssetSuite extends BaseSuite {
       invokeScript(acc, "transferAndBurn", assetId = asset, count = 100)
       nodes.waitForHeightArise()
       sender.assetDistribution(asset).map { case (a, v) => a.stringRepr -> v } shouldBe Map(
-        miner.address -> 100L,
-        acc           -> (simpleReissuableAsset.quantity - 200)
+        miner.address            -> 100L,
+        acc.toAddress.stringRepr -> (simpleReissuableAsset.quantity - 200)
       )
       reissue(acc, CallableMethod, asset, 400, reissuable = false)
       invokeScript(acc, "transferAndBurn", assetId = asset, count = 100)
       nodes.waitForHeightArise()
       sender.assetDistribution(asset).map { case (a, v) => a.stringRepr -> v } shouldBe Map(
-        miner.address -> 200L,
-        acc           -> simpleReissuableAsset.quantity
+        miner.address            -> 200L,
+        acc.toAddress.stringRepr -> simpleReissuableAsset.quantity
       )
     }
 
