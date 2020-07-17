@@ -233,7 +233,7 @@ class TransactionSerializeSuite extends BaseTransactionSuite with TableDrivenPro
     .explicitGet()
 
   private val transfers = MassTransferTransaction
-    .parseTransfersList(List(Transfer(firstAddress, 1.waves), Transfer(secondAddress, 2.waves)))
+    .parseTransfersList(List(Transfer(firstKeyPair.toAddress.toString, 1.waves), Transfer(secondKeyPair.toAddress.toString, 2.waves)))
     .explicitGet()
 
   val mass = MassTransferTransaction

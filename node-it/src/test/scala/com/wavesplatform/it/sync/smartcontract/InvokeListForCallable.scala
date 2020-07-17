@@ -14,8 +14,8 @@ import org.scalatest.CancelAfterFailure
 import scala.util.Random
 
 class InvokeListForCallable extends BaseTransactionSuite with CancelAfterFailure {
-  private val dApp   = firstAddress
-  private val caller = secondAddress
+  private val dApp   = firstKeyPair
+  private val caller = secondKeyPair
 
   test("prerequisite: set contract and issue asset") {
     val source =
@@ -56,6 +56,8 @@ class InvokeListForCallable extends BaseTransactionSuite with CancelAfterFailure
     sender.setScript(dApp, Some(script), setScriptFee, waitForTx = true)
   }
 
+  private val dAppAddress: String = dApp.toAddress.toString
+
   test("check list for all data types except union. Write first element of list of each type to acc data") {
     val rndString = Random.nextString(10)
     val intList   = ARR(IndexedSeq(CONST_LONG(Long.MaxValue)), limited = false).explicitGet()
@@ -66,16 +68,16 @@ class InvokeListForCallable extends BaseTransactionSuite with CancelAfterFailure
     sender
       .invokeScript(
         caller,
-        dApp,
+        dAppAddress,
         Some("f"),
         args = List(intList, strList, byteList, boolList),
         waitForTx = true
       )
 
-    sender.getDataByKey(dApp, "a") shouldBe IntegerDataEntry("a", Long.MaxValue)
-    sender.getDataByKey(dApp, "b") shouldBe StringDataEntry("b", rndString)
-    sender.getDataByKey(dApp, "c") shouldBe BinaryDataEntry("c", ByteStr(rndString.getBytes))
-    sender.getDataByKey(dApp, "y") shouldBe BooleanDataEntry("y", true)
+    sender.getDataByKey(dAppAddress, "a") shouldBe IntegerDataEntry("a", Long.MaxValue)
+    sender.getDataByKey(dAppAddress, "b") shouldBe StringDataEntry("b", rndString)
+    sender.getDataByKey(dAppAddress, "c") shouldBe BinaryDataEntry("c", ByteStr(rndString.getBytes))
+    sender.getDataByKey(dAppAddress, "y") shouldBe BooleanDataEntry("y", true)
   }
 
   test("List can contain union data type") {
@@ -88,17 +90,17 @@ class InvokeListForCallable extends BaseTransactionSuite with CancelAfterFailure
     sender
       .invokeScript(
         caller,
-        dApp,
+        dAppAddress,
         Some("checksize"),
         args = List(ARR(IndexedSeq(intEl, strEl, boolEl, byteEl), limited = false).explicitGet()),
         waitForTx = true
       )
 
-    sender.getDataByKey(dApp, "a") shouldBe IntegerDataEntry("a", Long.MaxValue)
-    sender.getDataByKey(dApp, "b") shouldBe StringDataEntry("b", rndString)
-    sender.getDataByKey(dApp, "c") shouldBe BinaryDataEntry("c", ByteStr(rndString.getBytes))
-    sender.getDataByKey(dApp, "y") shouldBe BooleanDataEntry("y", true)
-    sender.getDataByKey(dApp, "listsize") shouldBe IntegerDataEntry("listsize", 4)
+    sender.getDataByKey(dAppAddress, "a") shouldBe IntegerDataEntry("a", Long.MaxValue)
+    sender.getDataByKey(dAppAddress, "b") shouldBe StringDataEntry("b", rndString)
+    sender.getDataByKey(dAppAddress, "c") shouldBe BinaryDataEntry("c", ByteStr(rndString.getBytes))
+    sender.getDataByKey(dAppAddress, "y") shouldBe BooleanDataEntry("y", true)
+    sender.getDataByKey(dAppAddress, "listsize") shouldBe IntegerDataEntry("listsize", 4)
   }
 
 
@@ -112,16 +114,16 @@ class InvokeListForCallable extends BaseTransactionSuite with CancelAfterFailure
     sender
       .invokeScript(
         caller,
-        dApp,
+        dAppAddress,
         Some("f"),
         args = List(intList, strList, byteList, boolList),
         waitForTx = true
       )
 
-    sender.getDataByKey(dApp, "a") shouldBe IntegerDataEntry("a", Long.MaxValue)
-    sender.getDataByKey(dApp, "b") shouldBe StringDataEntry("b", rndString)
-    sender.getDataByKey(dApp, "c") shouldBe BinaryDataEntry("c", ByteStr(rndString.getBytes))
-    sender.getDataByKey(dApp, "y") shouldBe BooleanDataEntry("y", true)
+    sender.getDataByKey(dAppAddress, "a") shouldBe IntegerDataEntry("a", Long.MaxValue)
+    sender.getDataByKey(dAppAddress, "b") shouldBe StringDataEntry("b", rndString)
+    sender.getDataByKey(dAppAddress, "c") shouldBe BinaryDataEntry("c", ByteStr(rndString.getBytes))
+    sender.getDataByKey(dAppAddress, "y") shouldBe BooleanDataEntry("y", true)
   }
 
   ignore("error if list size more than 1000") {
@@ -130,7 +132,7 @@ class InvokeListForCallable extends BaseTransactionSuite with CancelAfterFailure
       sender
         .invokeScript(
           caller,
-          dApp,
+          dAppAddress,
           Some("f2"),
           args = List(strList, CONST_LONG(0))
         )
@@ -146,7 +148,7 @@ class InvokeListForCallable extends BaseTransactionSuite with CancelAfterFailure
       sender
         .invokeScript(
           caller,
-          dApp,
+          dAppAddress,
           Some("f2"),
           args = List(strList, CONST_LONG(1000)),
           waitForTx = true
@@ -163,7 +165,7 @@ class InvokeListForCallable extends BaseTransactionSuite with CancelAfterFailure
       sender
         .invokeScript(
           caller,
-          dApp,
+          dAppAddress,
           Some("f2"),
           args = List(strList, CONST_LONG(-1)),
           waitForTx = true

@@ -22,13 +22,16 @@ import com.wavesplatform.transaction.transfer.MassTransferTransaction.Transfer
 import com.wavesplatform.transaction.transfer.{MassTransferTransaction, TransferTransaction}
 import org.asynchttpclient.util.HttpConstants
 import org.scalatest
+import org.scalatest.BeforeAndAfterAll
 import play.api.libs.json._
 
 import scala.util.Random
 
-class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime {
+class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime with BeforeAndAfterAll {
+
+
   test("height should always be reported for transactions") {
-    val txId = sender.transfer(firstAddress, secondAddress, 1.waves, fee = minFee).id
+    val txId = sender.transfer(firstKeyPair, secondAddress, 1.waves, fee = minFee).id
 
     sender.waitForTransaction(txId)
     val jsv1               = Json.parse(sender.get(s"/transactions/info/$txId").getResponseBody)
@@ -327,7 +330,7 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime {
     assert(signedRequest.amount == transferAmount)
     val signature  = Base58.tryDecodeWithLimit((signedRequestJson \ "signature").as[String]).get
     val tx         = signedRequest.toTx.explicitGet()
-    val keyPair = pkByAddress(thirdAddress)
+    val keyPair = thirdKeyPair
     assert(crypto.verify(ByteStr(signature), tx.bodyBytes(), keyPair.publicKey))
   }
 
@@ -365,9 +368,9 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime {
     } yield (3.toByte, o2ver.toByte, 2.toByte, buyMatcherFeeAssetId, sellMatcherFeeAssetId)
 
     for ((o1ver, o2ver, tver, matcherFeeOrder1, matcherFeeOrder2) <- versionsWithWavesFee ++ versionsWithAssetFee) {
-      val buyer               = pkByAddress(firstAddress)
-      val seller              = pkByAddress(secondAddress)
-      val matcher             = pkByAddress(thirdAddress)
+      val buyer               = firstKeyPair
+      val seller              = secondKeyPair
+      val matcher             = thirdKeyPair
       val ts                  = ntpTime.correctedTime()
       val expirationTimestamp = ts + Order.MaxLiveTime
       val buyPrice            = 1 * Order.PriceConstant
@@ -409,6 +412,13 @@ class SignAndBroadcastApiSuite extends BaseTransactionSuite with NTPTime {
       sender.waitForTransaction(txId)
       assertBadRequestAndMessage(sender.signedBroadcast(tx), "is already in the state on a height")
     }
+  }
+
+  protected override def beforeAll(): Unit = {
+    super.beforeAll()
+    // explicitly create two more addresses in node's wallet
+    sender.postForm("/addresses")
+    sender.postForm("/addresses")
   }
 
   private def signBroadcastAndCalcFee(json: JsObject, usesProofs: Boolean, version: TxVersion): String = {

@@ -1,6 +1,5 @@
 package com.wavesplatform.it.sync.smartcontract
 
-import akka.http.scaladsl.model.StatusCodes
 import com.wavesplatform.common.utils.EitherExt2
 import com.wavesplatform.it.api.SyncHttpApi._
 import com.wavesplatform.it.api.TransactionInfo
@@ -11,7 +10,7 @@ import com.wavesplatform.lang.v1.estimator.v3.ScriptEstimatorV3
 import com.wavesplatform.transaction.smart.script.ScriptCompiler
 
 class InvokeFailFreeSuite extends BaseTransactionSuite {
-  private val dApp = firstAddress
+  private val dApp = firstKeyPair
 
   protected override def beforeAll(): Unit = {
     super.beforeAll()
@@ -40,7 +39,7 @@ class InvokeFailFreeSuite extends BaseTransactionSuite {
     val setScriptId = sender.setScript(dApp, Some(script), setScriptFee, waitForTx = true).id
     sender.transactionInfo[TransactionInfo](setScriptId).script.get.startsWith("base64:") shouldBe true
 
-    val scriptInfo = sender.addressScriptInfo(dApp)
+    val scriptInfo = sender.addressScriptInfo(dApp.toAddress.toString)
     scriptInfo.scriptText.isEmpty shouldBe false
     scriptInfo.script.get.startsWith("base64:") shouldBe true
   }
@@ -50,8 +49,8 @@ class InvokeFailFreeSuite extends BaseTransactionSuite {
 
   test("fail invoke script transaction if complexity exceeds fail-free limit") {
     val tx = sender.invokeScript(
-      caller = sender.address,
-      dappAddress = dApp,
+      caller = sender.keyPair,
+      dappAddress = dApp.toAddress.toString,
       func = Some("default"),
       args = List(CONST_BOOLEAN(false)),
       waitForTx = true
@@ -62,16 +61,14 @@ class InvokeFailFreeSuite extends BaseTransactionSuite {
 
   test("reject invoke script transaction if complexity conforms fail-free limit") {
     val tx = sender.invokeScript(
-      caller = sender.address,
-      dappAddress = dApp,
+      caller = sender.keyPair,
+      dappAddress = dApp.toAddress.toString,
       func = Some("default"),
       args = List(CONST_BOOLEAN(true))
     )
     sender.waitForHeight(sender.height + 1)
     sender.transactionStatus(Seq(tx._1.id)).head.status shouldBe "not_found"
     assertApiErrorRaised(
-      sender.debugStateChanges(tx._1.id).stateChanges,
-      StatusCodes.NotFound.intValue
-    )
+      sender.debugStateChanges(tx._1.id).stateChanges)
   }
 }
